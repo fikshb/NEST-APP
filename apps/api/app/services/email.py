@@ -94,7 +94,13 @@ def send_invoice_request_email(
                 pdf_attachment.add_header("Content-Disposition", "attachment", filename=pdf_filename)
                 msg.attach(pdf_attachment)
 
-        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30) as server:
+        if settings.smtp_port == 465:
+            server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30)
+        else:
+            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
+            server.starttls()
+
+        with server:
             server.login(settings.smtp_user, settings.smtp_password)
             server.send_message(msg)
 

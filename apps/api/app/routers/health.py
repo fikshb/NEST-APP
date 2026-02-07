@@ -31,7 +31,13 @@ def test_email():
         msg["To"] = settings.finance_email
         msg["Subject"] = "[NestApp] Test Email"
 
-        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30) as server:
+        if settings.smtp_port == 465:
+            server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30)
+        else:
+            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
+            server.starttls()
+
+        with server:
             server.login(settings.smtp_user, settings.smtp_password)
             server.send_message(msg)
 
