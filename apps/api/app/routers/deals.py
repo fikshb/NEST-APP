@@ -12,7 +12,8 @@ from app.schemas.deal import DealCreate, DealUpdate, DealResponse, DealCancelReq
 from app.services.audit import log_action
 from app.services.journey import get_journey_steps, get_journey_status, advance_step, can_progress, STEP_DOCUMENT_MAP
 from app.services.document_generator import generate_document
-from app.services.email_stub import send_invoice_request_email
+from app.services.email import send_invoice_request_email
+from app.models.document import Document
 from app.models.settings import AppSettings
 from app.config import settings as app_config
 
@@ -246,6 +247,14 @@ def action_request_invoice(deal_id: str, db: Session = Depends(get_db), channel:
     # Use deal_price if set, otherwise initial_price
     effective_price = deal.deal_price if deal.deal_price is not None else deal.initial_price
 
+    # Find latest document PDF to attach
+    pdf_path = None
+    latest_doc = db.query(Document).filter(Document.deal_id == deal.id).order_by(Document.created_at.desc()).first()
+    if latest_doc and latest_doc.versions:
+        latest_version = latest_doc.versions[0]  # ordered desc by version_no
+        if latest_version.pdf_path:
+            pdf_path = os.path.join(app_config.storage_root, latest_version.pdf_path)
+
     send_invoice_request_email(
         finance_email=finance_email,
         deal_code=deal.deal_code,
@@ -253,6 +262,7 @@ def action_request_invoice(deal_id: str, db: Session = Depends(get_db), channel:
         unit_code=deal.unit.unit_code,
         amount=str(effective_price),
         currency=deal.currency,
+        pdf_path=pdf_path,
     )
 
     deal.invoice_requested_at = datetime.now(timezone.utc)
