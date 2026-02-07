@@ -1,5 +1,5 @@
-import smtplib
-from email.mime.text import MIMEText
+import json
+import urllib.request
 
 from fastapi import APIRouter
 
@@ -15,32 +15,37 @@ def health_check():
 
 @router.get("/test-email")
 def test_email():
-    """Temporary endpoint to debug SMTP connection."""
+    """Temporary endpoint to debug email sending."""
     info = {
-        "smtp_host": settings.smtp_host,
-        "smtp_port": settings.smtp_port,
-        "smtp_user": settings.smtp_user,
+        "resend_api_key": settings.resend_api_key[:10] + "..." if len(settings.resend_api_key) > 10 else settings.resend_api_key,
+        "email_from": settings.email_from,
         "finance_email": settings.finance_email,
     }
-    if settings.smtp_host == "stub":
-        return {"status": "skipped", "reason": "SMTP is stub", **info}
+    if settings.resend_api_key == "stub":
+        return {"status": "skipped", "reason": "Resend API key is stub", **info}
 
     try:
-        msg = MIMEText("This is a test email from NestApp.")
-        msg["From"] = settings.smtp_user
-        msg["To"] = settings.finance_email
-        msg["Subject"] = "[NestApp] Test Email"
+        payload = {
+            "from": settings.email_from,
+            "to": [settings.finance_email],
+            "subject": "[NestApp] Test Email",
+            "html": "<p>This is a test email from NestApp.</p>",
+        }
 
-        if settings.smtp_port == 465:
-            server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30)
-        else:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
-            server.starttls()
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=data,
+            headers={
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
 
-        with server:
-            server.login(settings.smtp_user, settings.smtp_password)
-            server.send_message(msg)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
 
-        return {"status": "sent", "to": settings.finance_email, **info}
+        return {"status": "sent", "resend_id": result.get("id"), **info}
     except Exception as e:
         return {"status": "error", "error": str(e), **info}

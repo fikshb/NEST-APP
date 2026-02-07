@@ -6,10 +6,8 @@ class Settings(BaseSettings):
     api_secret_key: str = "change-me-in-production"
     storage_root: str = "/app/storage"
     openclaw_service_token: str = "dev-bot-token-change-in-prod"
-    smtp_host: str = "stub"
-    smtp_port: int = 465
-    smtp_user: str = "stub"
-    smtp_password: str = "stub"
+    resend_api_key: str = "stub"
+    email_from: str = "onboarding@resend.dev"
     finance_email: str = "finance@example.com"
     initial_asset_path: str = "/app/initial_asset"
     admin_user: str = "adminnest"

@@ -1,15 +1,16 @@
-"""Email service — sends real emails via SMTP or falls back to logging."""
+"""Email service — sends emails via Resend HTTP API or falls back to logging."""
+import base64
+import json
 import logging
 import os
-import smtplib
+import urllib.request
 from datetime import datetime, timezone
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
 def _build_invoice_html(
@@ -68,9 +69,9 @@ def send_invoice_request_email(
     currency: str,
     pdf_path: str | None = None,
 ) -> bool:
-    """Send invoice request email. Falls back to logging if SMTP is stub."""
+    """Send invoice request email via Resend. Falls back to logging if API key is stub."""
     # Stub mode — just log
-    if settings.smtp_host == "stub":
+    if settings.resend_api_key == "stub":
         logger.info(
             "[EMAIL STUB] Invoice request → %s | Deal: %s | Tenant: %s | Unit: %s | Amount: %s %s",
             finance_email, deal_code, tenant_name, unit_code, currency, amount,
@@ -78,33 +79,39 @@ def send_invoice_request_email(
         return True
 
     try:
-        msg = MIMEMultipart()
-        msg["From"] = settings.smtp_user
-        msg["To"] = finance_email
-        msg["Subject"] = f"[NestApp] Invoice Request — {deal_code}"
-
         html_body = _build_invoice_html(deal_code, tenant_name, unit_code, amount, currency)
-        msg.attach(MIMEText(html_body, "html"))
+
+        payload = {
+            "from": settings.email_from,
+            "to": [finance_email],
+            "subject": f"[NestApp] Invoice Request — {deal_code}",
+            "html": html_body,
+        }
 
         # Attach PDF if available
         if pdf_path and os.path.isfile(pdf_path):
             with open(pdf_path, "rb") as f:
-                pdf_attachment = MIMEApplication(f.read(), _subtype="pdf")
-                pdf_filename = os.path.basename(pdf_path)
-                pdf_attachment.add_header("Content-Disposition", "attachment", filename=pdf_filename)
-                msg.attach(pdf_attachment)
+                pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
+            payload["attachments"] = [{
+                "filename": os.path.basename(pdf_path),
+                "content": pdf_b64,
+            }]
 
-        if settings.smtp_port == 465:
-            server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=30)
-        else:
-            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30)
-            server.starttls()
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            RESEND_API_URL,
+            data=data,
+            headers={
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
 
-        with server:
-            server.login(settings.smtp_user, settings.smtp_password)
-            server.send_message(msg)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
 
-        logger.info("[EMAIL] Invoice request sent to %s for deal %s", finance_email, deal_code)
+        logger.info("[EMAIL] Invoice request sent to %s for deal %s (id: %s)", finance_email, deal_code, result.get("id"))
         return True
 
     except Exception as e:
