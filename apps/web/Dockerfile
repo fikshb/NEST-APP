@@ -30,4 +30,4 @@ COPY --from=builder /app/public ./public
 EXPOSE 3000
 
 # Railway injects PORT at runtime
-CMD ["sh", "-c", "node server.js -p ${PORT:-3000}"]
+CMD ["sh", "-c", "PORT=${PORT:-3000} node server.js"]
