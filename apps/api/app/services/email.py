@@ -22,6 +22,7 @@ def _build_invoice_html(
 ) -> str:
     """Build HTML email body for invoice request."""
     now = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
+    formatted_amount = f"{int(float(amount)):,.0f}".replace(",", ".")
     return f"""\
 <html>
 <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
@@ -47,7 +48,7 @@ def _build_invoice_html(
       </tr>
       <tr style="border-bottom: 1px solid #e0e0e0;">
         <td style="padding: 10px; font-weight: bold;">Amount</td>
-        <td style="padding: 10px; font-size: 18px; font-weight: bold;">{currency} {amount}</td>
+        <td style="padding: 10px; font-size: 18px; font-weight: bold;">{currency} {formatted_amount}</td>
       </tr>
     </table>
     <p>Please process this invoice at your earliest convenience.</p>
