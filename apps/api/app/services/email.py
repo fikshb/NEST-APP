@@ -104,6 +104,7 @@ def send_invoice_request_email(
             headers={
                 "Authorization": f"Bearer {settings.resend_api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": "NestApp/1.0",
             },
             method="POST",
         )
