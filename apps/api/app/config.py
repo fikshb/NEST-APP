@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     openclaw_service_token: str = "dev-bot-token-change-in-prod"
     finance_email: str = "finance@example.com"
     initial_asset_path: str = "/app/initial_asset"
+    admin_user: str = "adminnest"
+    admin_password: str = "@adm1nNest!!"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

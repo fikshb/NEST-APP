@@ -8,12 +8,13 @@ from app.database import get_db
 from app.models.document import Document, DocumentVersion
 from app.schemas.document import DocumentResponse, DocumentVersionResponse
 from app.config import settings
+from app.dependencies.auth import get_current_user, get_current_user_or_token
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
 @router.get("", response_model=list[DocumentResponse])
-def list_documents(deal_id: str | None = None, db: Session = Depends(get_db)):
+def list_documents(deal_id: str | None = None, db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
     q = db.query(Document).options(joinedload(Document.versions))
     if deal_id:
         q = q.filter(Document.deal_id == deal_id)
@@ -21,7 +22,7 @@ def list_documents(deal_id: str | None = None, db: Session = Depends(get_db)):
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-def get_document(document_id: str, db: Session = Depends(get_db)):
+def get_document(document_id: str, db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
     doc = db.query(Document).options(joinedload(Document.versions)).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(404, "Document not found.")
@@ -29,7 +30,7 @@ def get_document(document_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{document_id}/versions/{version_id}/preview")
-def preview_document(document_id: str, version_id: str, db: Session = Depends(get_db)):
+def preview_document(document_id: str, version_id: str, db: Session = Depends(get_db), _user: str = Depends(get_current_user_or_token)):
     version = db.query(DocumentVersion).filter(
         DocumentVersion.id == version_id,
         DocumentVersion.document_id == document_id,
@@ -44,7 +45,7 @@ def preview_document(document_id: str, version_id: str, db: Session = Depends(ge
 
 
 @router.get("/{document_id}/versions/{version_id}/pdf")
-def download_document_pdf(document_id: str, version_id: str, db: Session = Depends(get_db)):
+def download_document_pdf(document_id: str, version_id: str, db: Session = Depends(get_db), _user: str = Depends(get_current_user_or_token)):
     version = db.query(DocumentVersion).filter(
         DocumentVersion.id == version_id,
         DocumentVersion.document_id == document_id,
@@ -59,7 +60,7 @@ def download_document_pdf(document_id: str, version_id: str, db: Session = Depen
 
 
 @router.get("/{document_id}/latest/pdf")
-def download_latest_pdf(document_id: str, db: Session = Depends(get_db)):
+def download_latest_pdf(document_id: str, db: Session = Depends(get_db), _user: str = Depends(get_current_user_or_token)):
     version = db.query(DocumentVersion).filter(
         DocumentVersion.document_id == document_id,
         DocumentVersion.is_latest == True,

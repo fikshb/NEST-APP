@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchStaticDocuments, uploadStaticDocument } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { Upload, FileText, ExternalLink } from "lucide-react";
 
@@ -125,7 +126,7 @@ function DocCard({
             <p className="text-xs text-text-secondary mt-1">{activeVersion.notes}</p>
           )}
           <a
-            href={`${API_BASE}/static-documents/${docType}/active`}
+            href={`${API_BASE}/static-documents/${docType}/active?token=${getToken() || ""}`}
             target="_blank"
             className="inline-flex items-center gap-1 mt-3 text-xs text-teal-800 hover:underline font-ui"
           >

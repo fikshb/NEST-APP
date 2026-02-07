@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Sidebar } from "@/components/sidebar";
+import { AuthGuard } from "@/components/auth-guard";
 import { QueryProvider } from "@/lib/query-provider";
 import "./globals.css";
 
@@ -17,12 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <QueryProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 p-6 lg:p-8 max-w-layout mx-auto w-full">
-              {children}
-            </main>
-          </div>
+          <AuthGuard>{children}</AuthGuard>
         </QueryProvider>
       </body>
     </html>

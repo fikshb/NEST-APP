@@ -49,15 +49,17 @@ Provide a **simple, guided operational system** for serviced apartment managemen
 ### 2.1 User
 
 - **Admin**
-    
-    - Single user
-        
+
+    - Single user (credentials stored in environment variables)
+
     - Full authority
-        
+
+    - JWT-based authentication (24-hour token expiry)
+
     - No roles
-        
+
     - No RBAC
-        
+
     - No permission matrix
         
 
@@ -245,18 +247,14 @@ Admin never manages internal states.
 ### 6.1 Daily Stay Journey
 
 1. Select Unit
-    
-2. Generate Booking Confirmation
-    
-3. Generate Official Confirmation Letter
-    
-4. Request Invoice
-    
-5. Upload Invoice
-    
-6. Generate Unit Handover Certificate
-    
-7. Deal Closed
+
+2. Generate Booking Confirmation (with optional price negotiation)
+
+3. Request Invoice
+
+4. Upload Invoice
+
+5. Deal Closed
     
 
 ---
@@ -287,8 +285,15 @@ Admin never manages internal states.
 Each step:
 
 - Unlocks sequentially
-    
+
 - Is blocked if required documents are missing
+
+**Price Negotiation:**
+
+- Available at **Finalize Offer (LOO Final)** step for monthly/6/12-month deals
+- Available at **Generate Booking Confirmation** step for daily deals
+- Optional — if not set, the unit's list price is used as the deal price
+- Admin may enter a negotiated price before generating the document
     
 
 ---
@@ -649,7 +654,20 @@ System uses plain language:
 
 ---
 
-## 21. Final Lock Statement
+## 21. Authentication
+
+- Single admin user, credentials defined via environment variables (`ADMIN_USER`, `ADMIN_PASSWORD`)
+- JWT Bearer token authentication (HS256, 24-hour expiry)
+- Login page at `/login` with username and password form
+- Token stored in browser localStorage
+- All API endpoints (except `/health`, `/auth/login`, and bot webhook) require valid token
+- Document preview/download endpoints accept token via `?token=` query parameter (for new-tab access)
+- Logout clears token and redirects to login page
+- No user registration, no password reset — credentials are managed at deployment level
+
+---
+
+## 22. Final Lock Statement
 
 This **PRD v8.1** is:
 

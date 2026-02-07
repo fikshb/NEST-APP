@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.deal import Deal
 from app.models.unit import Unit
 from app.models.finance_attachment import FinanceAttachment
-from app.schemas.deal import DealCreate, DealUpdate, DealResponse, DealCancelRequest, DealOverrideRequest, DealActionResponse
+from app.schemas.deal import DealCreate, DealUpdate, DealResponse, DealCancelRequest, DealOverrideRequest, DealActionResponse, DealSetPriceRequest, DealSetMoveInRequest
 from app.services.audit import log_action
 from app.services.journey import get_journey_steps, get_journey_status, advance_step, can_progress, STEP_DOCUMENT_MAP
 from app.services.document_generator import generate_document
@@ -19,6 +19,13 @@ from app.config import settings as app_config
 import os
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
+
+TERM_PRICE_MAP = {
+    "DAILY": "daily_price",
+    "MONTHLY": "monthly_price",
+    "SIX_MONTHS": "six_month_price",
+    "TWELVE_MONTHS": "twelve_month_price",
+}
 
 
 def _generate_deal_code(db: Session) -> str:
@@ -34,6 +41,17 @@ def _load_deal(deal_id: str, db: Session) -> Deal:
     if not deal:
         raise HTTPException(404, "Deal not found.")
     return deal
+
+
+def _get_unit_price(unit: Unit, term_type: str):
+    """Get the unit price based on term type."""
+    price_field = TERM_PRICE_MAP.get(term_type)
+    if not price_field:
+        raise HTTPException(400, f"Invalid term type: {term_type}")
+    price = getattr(unit, price_field, None)
+    if price is None:
+        raise HTTPException(400, f"Unit {unit.unit_code} does not have a {term_type.lower().replace('_', ' ')} price configured.")
+    return price
 
 
 @router.get("", response_model=list[DealResponse])
@@ -73,10 +91,19 @@ def create_deal(data: DealCreate, db: Session = Depends(get_db)):
     if unit.status != "AVAILABLE":
         raise HTTPException(409, "This unit is not available for booking.")
 
+    # Auto-set initial_price from unit pricing
+    initial_price = _get_unit_price(unit, data.term_type)
+
     deal_code = _generate_deal_code(db)
     deal = Deal(
         deal_code=deal_code,
-        **data.model_dump(),
+        tenant_id=data.tenant_id,
+        unit_id=data.unit_id,
+        term_type=data.term_type,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        initial_price=initial_price,
+        currency=data.currency,
     )
     # First step is SELECT_UNIT which is done by creating the deal
     deal.current_step = "SELECT_UNIT"
@@ -116,6 +143,53 @@ def update_deal(deal_id: str, data: DealUpdate, db: Session = Depends(get_db)):
 
 # ── Deal Actions ──
 
+@router.post("/{deal_id}/actions/set-deal-price", response_model=DealActionResponse)
+def action_set_deal_price(deal_id: str, data: DealSetPriceRequest, db: Session = Depends(get_db)):
+    """Set the negotiated deal price. Available at FINALIZE_LOO or GENERATE_BOOKING_CONFIRMATION step."""
+    deal = _load_deal(deal_id, db)
+    if deal.status in ("CANCELLED", "COMPLETED"):
+        raise HTTPException(409, "This deal cannot be modified.")
+    if deal.current_step not in ("FINALIZE_LOO", "GENERATE_BOOKING_CONFIRMATION"):
+        raise HTTPException(400, "Deal price can only be set at the Booking Confirmation or Finalize LOO step.")
+
+    deal.deal_price = data.deal_price
+    log_action(
+        db,
+        action="SET_DEAL_PRICE",
+        summary=f"Negotiated price set to {data.deal_price} for deal {deal.deal_code}",
+        deal_id=deal.id,
+        metadata={"initial_price": str(deal.initial_price), "deal_price": str(data.deal_price)},
+    )
+    db.commit()
+    db.refresh(deal)
+    refreshed = _load_deal(deal.id, db)
+    return DealActionResponse(success=True, message="Deal price updated.", deal=DealResponse.model_validate(refreshed))
+
+
+@router.post("/{deal_id}/actions/set-move-in-details", response_model=DealActionResponse)
+def action_set_move_in_details(deal_id: str, data: DealSetMoveInRequest, db: Session = Depends(get_db)):
+    """Set move-in date and items list. Available at GENERATE_MOVE_IN step."""
+    deal = _load_deal(deal_id, db)
+    if deal.status in ("CANCELLED", "COMPLETED"):
+        raise HTTPException(409, "This deal cannot be modified.")
+    if deal.current_step != "GENERATE_MOVE_IN":
+        raise HTTPException(400, "Move-in details can only be set at the Move-in Confirmation step.")
+
+    deal.move_in_date = data.move_in_date
+    deal.move_in_notes = data.move_in_notes
+    log_action(
+        db,
+        action="SET_MOVE_IN_DETAILS",
+        summary=f"Move-in details set for deal {deal.deal_code}: date={data.move_in_date}",
+        deal_id=deal.id,
+        metadata={"move_in_date": str(data.move_in_date), "move_in_notes": data.move_in_notes},
+    )
+    db.commit()
+    db.refresh(deal)
+    refreshed = _load_deal(deal.id, db)
+    return DealActionResponse(success=True, message="Move-in details saved.", deal=DealResponse.model_validate(refreshed))
+
+
 @router.post("/{deal_id}/actions/generate-document", response_model=DealActionResponse)
 def action_generate_document(deal_id: str, db: Session = Depends(get_db), channel: str = "WEB"):
     deal = _load_deal(deal_id, db)
@@ -125,6 +199,10 @@ def action_generate_document(deal_id: str, db: Session = Depends(get_db), channe
     current_step = deal.current_step
     if current_step not in STEP_DOCUMENT_MAP:
         raise HTTPException(400, "The current step does not require document generation.")
+
+    # If no deal_price set at document generation, use initial_price as deal_price
+    if current_step in ("FINALIZE_LOO", "GENERATE_BOOKING_CONFIRMATION") and deal.deal_price is None:
+        deal.deal_price = deal.initial_price
 
     doc_type = STEP_DOCUMENT_MAP[current_step]
     version = generate_document(db, deal, doc_type, channel=channel)
@@ -165,12 +243,15 @@ def action_request_invoice(deal_id: str, db: Session = Depends(get_db), channel:
     app_settings = db.query(AppSettings).first()
     finance_email = app_settings.finance_email if app_settings else app_config.finance_email
 
+    # Use deal_price if set, otherwise initial_price
+    effective_price = deal.deal_price if deal.deal_price is not None else deal.initial_price
+
     send_invoice_request_email(
         finance_email=finance_email,
         deal_code=deal.deal_code,
         tenant_name=deal.tenant.full_name,
         unit_code=deal.unit.unit_code,
-        amount=str(deal.deal_price),
+        amount=str(effective_price),
         currency=deal.currency,
     )
 

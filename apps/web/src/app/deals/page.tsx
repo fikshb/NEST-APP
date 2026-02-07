@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fetchDeals, fetchTenants, fetchUnits, createDeal } from "@/lib/api";
@@ -14,6 +14,13 @@ const STATUS_BADGE: Record<string, string> = {
   INVOICE_UPLOADED: "badge badge-info",
   COMPLETED: "badge badge-success",
   CANCELLED: "badge badge-danger",
+};
+
+const TERM_PRICE_FIELD: Record<string, string> = {
+  DAILY: "daily_price",
+  MONTHLY: "monthly_price",
+  SIX_MONTHS: "six_month_price",
+  TWELVE_MONTHS: "twelve_month_price",
 };
 
 export default function DealsPage() {
@@ -63,7 +70,7 @@ export default function DealsPage() {
                   {deal.tenant?.full_name} — Unit {deal.unit?.unit_code} — {deal.term_type.replace(/_/g, " ")}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Started {formatDate(deal.created_at)} — {formatCurrency(Number(deal.deal_price), deal.currency)}
+                  Started {formatDate(deal.created_at)} — {formatCurrency(Number(deal.deal_price ?? deal.initial_price), deal.currency)}
                 </p>
               </div>
               <span className={STATUS_BADGE[deal.status] || "badge"}>
@@ -96,24 +103,36 @@ function CreateDealModal({
     unit_id: "",
     term_type: "MONTHLY",
     start_date: new Date().toISOString().split("T")[0],
-    list_price: "",
-    deal_price: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Auto-calculate price from selected unit + term type
+  const selectedUnit = useMemo(() => {
+    if (!form.unit_id || !units) return null;
+    return units.find((u: any) => u.id === form.unit_id);
+  }, [form.unit_id, units]);
+
+  const autoPrice = useMemo(() => {
+    if (!selectedUnit) return null;
+    const field = TERM_PRICE_FIELD[form.term_type];
+    if (!field) return null;
+    const price = selectedUnit[field];
+    return price != null ? Number(price) : null;
+  }, [selectedUnit, form.term_type]);
+
   const handleSubmit = async () => {
-    if (!form.tenant_id || !form.unit_id || !form.list_price || !form.deal_price) {
-      setError("Please fill in all required fields.");
+    if (!form.tenant_id || !form.unit_id) {
+      setError("Please select a tenant and unit.");
+      return;
+    }
+    if (autoPrice === null) {
+      setError(`Unit ${selectedUnit?.unit_code} does not have a ${form.term_type.toLowerCase().replace(/_/g, " ")} price configured.`);
       return;
     }
     setSaving(true);
     try {
-      await createDeal({
-        ...form,
-        list_price: Number(form.list_price),
-        deal_price: Number(form.deal_price),
-      });
+      await createDeal(form);
       onCreated();
     } catch (e: any) {
       setError(e.message);
@@ -178,27 +197,19 @@ function CreateDealModal({
               onChange={(e) => setForm({ ...form, start_date: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-ui text-text-secondary mb-1 block">List Price</label>
-              <input
-                type="number"
-                className="input-field"
-                placeholder="0"
-                value={form.list_price}
-                onChange={(e) => setForm({ ...form, list_price: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-ui text-text-secondary mb-1 block">Deal Price</label>
-              <input
-                type="number"
-                className="input-field"
-                placeholder="0"
-                value={form.deal_price}
-                onChange={(e) => setForm({ ...form, deal_price: e.target.value })}
-              />
-            </div>
+
+          {/* Auto-calculated price display */}
+          <div className="p-4 rounded-input bg-teal-900/5 border border-teal-900/10">
+            <p className="text-xs font-ui text-text-muted mb-1">Unit Price ({form.term_type.replace(/_/g, " ")})</p>
+            {autoPrice !== null ? (
+              <p className="text-lg font-heading font-semibold text-teal-900">
+                {formatCurrency(autoPrice, selectedUnit?.currency || "IDR")}
+              </p>
+            ) : form.unit_id ? (
+              <p className="text-sm text-feedback-warning">No price configured for this term type</p>
+            ) : (
+              <p className="text-sm text-text-muted">Select a unit to see pricing</p>
+            )}
           </div>
         </div>
 

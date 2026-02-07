@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lease Agreement | {{ company_name }}</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2cm; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #212929; line-height: 1.7; font-size: 10.5pt; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #133437; padding-bottom: 16px; margin-bottom: 24px; }
+  .logo img { max-height: 60px; }
+  .company-info { text-align: right; font-size: 9pt; color: #565656; }
+  .doc-title { font-size: 18pt; font-weight: 700; color: #133437; text-align: center; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  .doc-ref { font-size: 9pt; color: #565656; text-align: center; margin-bottom: 28px; }
+  .preamble { font-size: 10pt; margin-bottom: 20px; }
+  .article { margin-bottom: 20px; }
+  .article h3 { font-size: 11pt; font-weight: 700; color: #133437; margin-bottom: 8px; text-transform: uppercase; }
+  .article p, .article li { font-size: 10pt; margin-bottom: 6px; }
+  .article ol { padding-left: 20px; }
+  .article ol li { margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  table th, table td { text-align: left; padding: 6px 10px; border: 1px solid #dfdbd1; font-size: 10pt; }
+  table th { background: #f7f7f5; color: #133437; font-weight: 600; width: 35%; }
+  .signatures { display: flex; justify-content: space-between; gap: 40px; margin-top: 48px; page-break-inside: avoid; }
+  .sig-col { flex: 1; text-align: center; }
+  .sig-area { height: 72px; display: flex; align-items: flex-end; justify-content: center; }
+  .sig-img { max-height: 60px; }
+  .sig-line { margin-top: 16px; padding-top: 4px; font-size: 10pt; }
+  .article { page-break-inside: avoid; }
+  table { page-break-inside: avoid; }
+  .footer { margin-top: 48px; border-top: 1px solid #dfdbd1; padding-top: 10px; font-size: 8pt; color: #999; text-align: center; }
+  .version-badge { display: inline-block; background: #133437; color: #fff; padding: 2px 10px; border-radius: 10px; font-size: 8pt; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="Logo">{% endif %}
+  </div>
+  <div class="company-info">
+    <strong>{{ company_name }}</strong><br>
+    {{ company_address }}
+  </div>
+</div>
+
+<div class="doc-title">Lease Agreement</div>
+<div class="doc-ref">
+  <span class="version-badge">v{{ version }}</span> &nbsp;|&nbsp;
+  Ref: {{ deal.deal_code }} &nbsp;|&nbsp; Date: {{ generated_at }}
+</div>
+
+<div class="preamble">
+  <p>This Lease Agreement ("<strong>Agreement</strong>") is entered into on <strong>{{ generated_at }}</strong> by and between:</p>
+  <p><strong>LANDLORD:</strong> {{ company_name }}, with registered address at {{ company_address }} (hereinafter referred to as the "<strong>Landlord</strong>");</p>
+  <p>AND</p>
+  <p><strong>TENANT:</strong> {{ tenant.full_name }}{% if tenant.company_name %}, representing {{ tenant.company_name }}{% endif %}, contactable at {{ tenant.email }} / {{ tenant.phone }} (hereinafter referred to as the "<strong>Tenant</strong>");</p>
+  <p>The Landlord and the Tenant are collectively referred to as the "<strong>Parties</strong>".</p>
+</div>
+
+<div class="article">
+  <h3>Article 1 — Premises</h3>
+  <table>
+    <tr><th>Unit</th><td>{{ unit.unit_code }} ({{ unit.unit_type }})</td></tr>
+    <tr><th>Location</th><td>{{ company_name }}, {{ company_address }}</td></tr>
+  </table>
+  <p>The Landlord hereby agrees to lease to the Tenant, and the Tenant agrees to lease from the Landlord, the above-described premises ("<strong>Premises</strong>") in its current condition.</p>
+</div>
+
+<div class="article">
+  <h3>Article 2 — Term of Lease</h3>
+  <table>
+    <tr><th>Lease Term</th><td>{{ deal.term_type | replace("_", " ") | title }}</td></tr>
+    <tr><th>Commencement Date</th><td>{{ deal.start_date }}</td></tr>
+    {% if deal.end_date %}<tr><th>Expiry Date</th><td>{{ deal.end_date }}</td></tr>{% endif %}
+  </table>
+  <p>The lease shall automatically expire at the end of the term unless renewed by mutual written agreement executed no less than thirty (30) days prior to expiry.</p>
+</div>
+
+<div class="article">
+  <h3>Article 3 — Rent and Payment</h3>
+  <table>
+    <tr><th>Agreed Rental Rate</th><td><strong>{{ deal.currency }} {{ "{:,.2f}".format(effective_price | float) }}</strong></td></tr>
+    <tr><th>Payment Frequency</th><td>{{ deal.term_type | replace("_", " ") | title }}{% if deal.term_type == "DAILY" %} (per night){% endif %}</td></tr>
+    <tr><th>Payment Method</th><td>Bank transfer to the Landlord's designated account</td></tr>
+  </table>
+  <ol>
+    <li>Rental payments shall be made in advance on or before the first day of each rental period.</li>
+    <li>Late payments shall incur a penalty of 1% per week of the outstanding amount, calculated from the due date.</li>
+    <li>All payments shall be made in {{ deal.currency }} unless otherwise agreed in writing.</li>
+  </ol>
+</div>
+
+<div class="article">
+  <h3>Article 4 — Security Deposit</h3>
+  <p>The Tenant shall pay a security deposit of <strong>{{ deal.currency }} {{ "{:,.2f}".format(effective_price | float) }}</strong> (equivalent to one period's rental) upon execution of this Agreement. The deposit shall be refundable within fourteen (14) days of the lease expiry, subject to:</p>
+  <ol>
+    <li>Satisfactory inspection of the Premises;</li>
+    <li>Settlement of all outstanding utilities and charges;</li>
+    <li>Deduction for any damage beyond normal wear and tear.</li>
+  </ol>
+</div>
+
+<div class="article">
+  <h3>Article 5 — Obligations of the Landlord</h3>
+  <ol>
+    <li>Deliver the Premises in a clean, habitable, and good working condition on the commencement date.</li>
+    <li>Maintain the structural integrity of the building and common areas.</li>
+    <li>Ensure essential services (water supply, electricity infrastructure, elevators) are operational.</li>
+    <li>Carry out major repairs that are not attributable to the Tenant's negligence or misuse.</li>
+    <li>Provide reasonable notice of at least 24 hours before entering the Premises for inspection or maintenance, except in emergencies.</li>
+  </ol>
+</div>
+
+<div class="article">
+  <h3>Article 6 — Obligations of the Tenant</h3>
+  <ol>
+    <li>Use the Premises exclusively for residential purposes.</li>
+    <li>Pay all rental charges and utility bills punctually.</li>
+    <li>Maintain the Premises in good and tenantable condition.</li>
+    <li>Not make any structural alterations without the prior written consent of the Landlord.</li>
+    <li>Not sublet, assign, or transfer this lease or any part thereof without prior written consent.</li>
+    <li>Comply with all building rules, regulations, and applicable laws.</li>
+    <li>Permit the Landlord or authorized agents to inspect the Premises upon reasonable notice.</li>
+    <li>Return the Premises in the same condition as received, subject to normal wear and tear, upon termination.</li>
+  </ol>
+</div>
+
+<div class="article">
+  <h3>Article 7 — Termination</h3>
+  <ol>
+    <li>Either Party may terminate this Agreement by providing not less than <strong>thirty (30) days' written notice</strong> to the other Party.</li>
+    <li>The Landlord may terminate this Agreement immediately if the Tenant:<br>
+      (a) Fails to pay rent for more than fourteen (14) days past the due date;<br>
+      (b) Breaches any material term of this Agreement and fails to remedy within seven (7) days of written notice;<br>
+      (c) Uses the Premises for unlawful purposes.
+    </li>
+    <li>Upon early termination by the Tenant without cause, the security deposit shall be forfeited as liquidated damages.</li>
+  </ol>
+</div>
+
+<div class="article">
+  <h3>Article 8 — Governing Law</h3>
+  <p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Indonesia. Any dispute arising out of or in connection with this Agreement shall be resolved through amicable negotiation, failing which, through the courts of competent jurisdiction.</p>
+</div>
+
+<div class="article">
+  <h3>Article 9 — Entire Agreement</h3>
+  <p>This Agreement constitutes the entire understanding between the Parties with respect to the Premises and supersedes all prior discussions, negotiations, and agreements. Any amendment to this Agreement must be made in writing and signed by both Parties.</p>
+</div>
+
+<p style="margin-top: 24px; font-size: 10pt;"><strong>IN WITNESS WHEREOF</strong>, the Parties have executed this Lease Agreement as of the date first written above.</p>
+
+<div class="signatures">
+  <div class="sig-col">
+    <div class="sig-area">
+      {% if signature_data_uri %}
+      <img src="{{ signature_data_uri }}" alt="Signature" class="sig-img">
+      {% endif %}
+    </div>
+    <div class="sig-line">
+      {% if signatory_name %}
+      <strong>{{ signatory_name }}</strong><br>
+      {{ signatory_title }}<br>
+      {% endif %}
+      {{ company_name }}<br>
+      <em style="font-size: 9pt; color: #999;">(Landlord)</em>
+    </div>
+  </div>
+  <div class="sig-col">
+    <div class="sig-area"></div>
+    <div class="sig-line">
+      <strong>{{ tenant.full_name }}</strong><br>
+      {% if tenant.company_name %}{{ tenant.company_name }}<br>{% endif %}
+      <em style="font-size: 9pt; color: #999;">(Tenant)</em>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  {{ company_name }} — Confidential | Ref: {{ deal.deal_code }} | v{{ version }} | {{ generated_at }}
+</div>
+
+</body>
+</html>

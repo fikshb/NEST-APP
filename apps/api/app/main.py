@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
 from app.config import settings
-from app.routers import health, tenants, units, deals, documents, static_documents, app_settings, audit_logs, dashboard, webhook
+from app.dependencies.auth import get_current_user
+from app.routers import health, tenants, units, deals, documents, static_documents, app_settings, audit_logs, dashboard, webhook, auth
 
 app = FastAPI(
     title="NestApp API",
@@ -25,14 +26,16 @@ storage_path = settings.storage_root
 if os.path.isdir(storage_path):
     app.mount("/files", StaticFiles(directory=storage_path), name="files")
 
-# Register routers
+# Public routers (no auth required)
 app.include_router(health.router)
-app.include_router(dashboard.router)
-app.include_router(tenants.router)
-app.include_router(units.router)
-app.include_router(deals.router)
+app.include_router(auth.router)
+app.include_router(webhook.router)
+
+# Document routers — use per-endpoint auth (supports token query param for preview/download)
 app.include_router(documents.router)
 app.include_router(static_documents.router)
-app.include_router(app_settings.router)
-app.include_router(audit_logs.router)
-app.include_router(webhook.router)
+
+# Protected routers (auth required)
+protected = [dashboard, tenants, units, deals, app_settings, audit_logs]
+for mod in protected:
+    app.include_router(mod.router, dependencies=[Depends(get_current_user)])

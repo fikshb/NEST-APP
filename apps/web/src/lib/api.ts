@@ -1,15 +1,56 @@
+import { getToken, removeToken } from "@/lib/auth";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  if (res.status === 401 || res.status === 403) {
+    removeToken();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new Error("Session expired. Please login again.");
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `API error: ${res.status}`);
   }
   return res.json();
+}
+
+function apiUpload(path: string, formData: FormData): Promise<any> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  }).then((res) => {
+    if (res.status === 401 || res.status === 403) {
+      removeToken();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      throw new Error("Session expired. Please login again.");
+    }
+    if (!res.ok) throw new Error("Upload failed");
+    return res.json();
+  });
 }
 
 // ── Dashboard ──
@@ -51,18 +92,22 @@ export const dealRequestInvoice = (id: string) =>
 export const dealUploadInvoice = (id: string, file: File) => {
   const formData = new FormData();
   formData.append("file", file);
-  return fetch(`${API_BASE}/deals/${id}/actions/upload-invoice`, {
-    method: "POST",
-    body: formData,
-  }).then((res) => {
-    if (!res.ok) throw new Error("Upload failed");
-    return res.json();
-  });
+  return apiUpload(`/deals/${id}/actions/upload-invoice`, formData);
 };
 export const dealClose = (id: string) =>
   apiFetch<any>(`/deals/${id}/actions/close`, { method: "POST" });
 export const dealCancel = (id: string, reason: string) =>
   apiFetch<any>(`/deals/${id}/actions/cancel`, { method: "POST", body: JSON.stringify({ reason }) });
+export const dealSetPrice = (id: string, dealPrice: number) =>
+  apiFetch<any>(`/deals/${id}/actions/set-deal-price`, {
+    method: "POST",
+    body: JSON.stringify({ deal_price: dealPrice }),
+  });
+export const dealSetMoveInDetails = (id: string, moveInDate: string, moveInNotes: string) =>
+  apiFetch<any>(`/deals/${id}/actions/set-move-in-details`, {
+    method: "POST",
+    body: JSON.stringify({ move_in_date: moveInDate, move_in_notes: moveInNotes }),
+  });
 export const dealEmergencyOverride = (id: string, reason: string, targetStep: string) =>
   apiFetch<any>(`/deals/${id}/actions/emergency-override`, {
     method: "POST",
@@ -79,13 +124,7 @@ export const uploadStaticDocument = (docType: string, file: File, notes?: string
   const formData = new FormData();
   formData.append("file", file);
   if (notes) formData.append("notes", notes);
-  return fetch(`${API_BASE}/static-documents/${docType}/upload`, {
-    method: "POST",
-    body: formData,
-  }).then((res) => {
-    if (!res.ok) throw new Error("Upload failed");
-    return res.json();
-  });
+  return apiUpload(`/static-documents/${docType}/upload`, formData);
 };
 
 // ── Settings ──

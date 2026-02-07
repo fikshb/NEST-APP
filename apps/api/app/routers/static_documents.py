@@ -10,17 +10,18 @@ from app.models.static_document import StaticDocument, StaticDocumentVersion
 from app.schemas.document import StaticDocumentResponse
 from app.services.audit import log_action
 from app.config import settings
+from app.dependencies.auth import get_current_user, get_current_user_or_token
 
 router = APIRouter(prefix="/static-documents", tags=["Static Documents"])
 
 
 @router.get("", response_model=list[StaticDocumentResponse])
-def list_static_documents(db: Session = Depends(get_db)):
+def list_static_documents(db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
     return db.query(StaticDocument).options(joinedload(StaticDocument.versions)).all()
 
 
 @router.get("/{doc_type}/active")
-def get_active_static_document(doc_type: str, db: Session = Depends(get_db)):
+def get_active_static_document(doc_type: str, db: Session = Depends(get_db), _user: str = Depends(get_current_user_or_token)):
     """Get the active version of a static document (CATALOG or PRICELIST)."""
     doc_type = doc_type.upper()
     sdoc = db.query(StaticDocument).filter(StaticDocument.doc_type == doc_type).first()
@@ -45,6 +46,7 @@ def upload_static_document(
     file: UploadFile = File(...),
     notes: str = Form(""),
     db: Session = Depends(get_db),
+    _user: str = Depends(get_current_user),
 ):
     doc_type = doc_type.upper()
     if doc_type not in ("CATALOG", "PRICELIST"):
@@ -108,7 +110,7 @@ def upload_static_document(
 
 
 @router.post("/{doc_type}/versions/{version_id}/activate", response_model=StaticDocumentResponse)
-def activate_static_document_version(doc_type: str, version_id: str, db: Session = Depends(get_db)):
+def activate_static_document_version(doc_type: str, version_id: str, db: Session = Depends(get_db), _user: str = Depends(get_current_user)):
     doc_type = doc_type.upper()
     sdoc = db.query(StaticDocument).filter(StaticDocument.doc_type == doc_type).first()
     if not sdoc:

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Move-in Confirmation | {{ company_name }}</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2cm; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #212929; line-height: 1.7; font-size: 11pt; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #133437; padding-bottom: 16px; margin-bottom: 24px; }
+  .logo img { max-height: 60px; }
+  .company-info { text-align: right; font-size: 9pt; color: #565656; }
+  .doc-title { font-size: 16pt; font-weight: 600; color: #133437; margin-bottom: 4px; }
+  .doc-ref { font-size: 9pt; color: #565656; margin-bottom: 24px; }
+  .section { margin-bottom: 20px; page-break-inside: avoid; }
+  .section h3 { font-size: 11pt; font-weight: 600; color: #133437; border-bottom: 1px solid #dfdbd1; padding-bottom: 4px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; page-break-inside: avoid; }
+  table th, table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e5e5e0; font-size: 10pt; }
+  table th { background: #f7f7f5; color: #133437; font-weight: 600; width: 35%; }
+  .movein-highlight { background: #D4EDDA; border: 1px solid #28A745; padding: 16px; text-align: center; border-radius: 4px; margin-bottom: 24px; page-break-inside: avoid; }
+  .movein-highlight .date { font-size: 14pt; font-weight: 700; color: #155724; }
+  .items-list { background: #f7f7f5; padding: 16px; border-radius: 4px; margin-bottom: 20px; page-break-inside: avoid; }
+  .items-list h4 { font-size: 10pt; font-weight: 600; color: #133437; margin-bottom: 8px; }
+  .items-list .item { padding: 4px 0; font-size: 10pt; border-bottom: 1px dashed #dfdbd1; }
+  .items-list .item:last-child { border-bottom: none; }
+  .checklist { padding-left: 0; list-style: none; }
+  .checklist li { padding: 6px 0; font-size: 10pt; border-bottom: 1px solid #e5e5e0; }
+  .checklist li:before { content: "☐ "; font-size: 12pt; }
+  .info-box { background: #E8F5F0; padding: 12px 16px; border-left: 3px solid #133437; font-size: 10pt; margin-top: 16px; border-radius: 0 4px 4px 0; page-break-inside: avoid; }
+  .signature-block { margin-top: 40px; page-break-inside: avoid; }
+  .sig-img { max-height: 60px; margin-top: 12px; }
+  .sig-line { width: 200px; padding-top: 4px; font-size: 10pt; }
+  .footer { margin-top: 48px; border-top: 1px solid #dfdbd1; padding-top: 10px; font-size: 8pt; color: #999; text-align: center; }
+  .version-badge { display: inline-block; background: #133437; color: #fff; padding: 2px 10px; border-radius: 10px; font-size: 8pt; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="Logo">{% endif %}
+  </div>
+  <div class="company-info">
+    <strong>{{ company_name }}</strong><br>
+    {{ company_address }}
+  </div>
+</div>
+
+<div class="doc-title">Move-in Confirmation</div>
+<div class="doc-ref">
+  <span class="version-badge">v{{ version }}</span> &nbsp;|&nbsp;
+  Ref: {{ deal.deal_code }} &nbsp;|&nbsp; Date: {{ generated_at }}
+</div>
+
+<p>Dear <strong>{{ tenant.full_name }}</strong>,</p>
+
+<p>We are pleased to confirm that your unit is ready for move-in. Please review the details below and prepare accordingly.</p>
+
+<div class="movein-highlight">
+  <div style="font-size: 10pt; color: #155724;">Scheduled Move-in Date</div>
+  <div class="date">{{ move_in_date if move_in_date else deal.start_date }}</div>
+  <div style="font-size: 9pt; color: #155724;">Please arrive between 09:00 – 17:00</div>
+</div>
+
+<div class="section">
+  <h3>Tenant &amp; Unit Details</h3>
+  <table>
+    <tr><th>Tenant</th><td>{{ tenant.full_name }}</td></tr>
+    <tr><th>Phone</th><td>{{ tenant.phone }}</td></tr>
+    <tr><th>Unit</th><td>{{ unit.unit_code }} ({{ unit.unit_type }})</td></tr>
+    <tr><th>Lease Term</th><td>{{ deal.term_type | replace("_", " ") | title }}</td></tr>
+  </table>
+</div>
+
+{% if move_in_notes %}
+<div class="section">
+  <h3>Items to be Moved In</h3>
+  <p style="font-size: 9.5pt; color: #565656; margin-bottom: 8px;">The following items have been declared by the tenant. Our team will prepare assistance accordingly.</p>
+  <div class="items-list">
+    {% for item in move_in_notes.split('\n') %}
+    {% if item.strip() %}
+    <div class="item">{{ item.strip() }}</div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="section">
+  <h3>Move-in Day Checklist</h3>
+  <ul class="checklist">
+    <li>Bring a valid government-issued ID (KTP/Passport)</li>
+    <li>Bring a copy of the signed Lease Agreement</li>
+    <li>Confirm all payments have been completed</li>
+    <li>Collect keys from reception</li>
+    <li>Complete unit inspection with building staff</li>
+    <li>Sign the Handover Certificate</li>
+    <li>Test all amenities (AC, water heater, appliances)</li>
+    <li>Save emergency contact numbers</li>
+  </ul>
+</div>
+
+<div class="section">
+  <h3>Contact Information</h3>
+  <table>
+    <tr><th>Reception</th><td>Available 24/7 at the main lobby</td></tr>
+    <tr><th>Maintenance</th><td>Submit requests via reception or building management</td></tr>
+    <tr><th>Emergency</th><td>Fire: 113 | Ambulance: 118 | Police: 110</td></tr>
+  </table>
+</div>
+
+<div class="info-box">
+  <strong>Important:</strong> Moving activities are permitted between 09:00 – 17:00 on weekdays and 09:00 – 14:00 on Saturdays. No moving activities are permitted on Sundays and public holidays. Please coordinate with building management at least 24 hours in advance.
+</div>
+
+<div class="signature-block">
+  <p>We look forward to welcoming you to your new home.</p>
+  <p>Warm regards,</p>
+  {% if signature_data_uri %}
+  <img src="{{ signature_data_uri }}" alt="Signature" class="sig-img">
+  {% endif %}
+  {% if signatory_name %}
+  <div class="sig-line">
+    <strong>{{ signatory_name }}</strong><br>
+    {{ signatory_title }}<br>
+    {{ company_name }}
+  </div>
+  {% endif %}
+</div>
+
+<div class="footer">
+  {{ company_name }} — Ref: {{ deal.deal_code }} | v{{ version }} | {{ generated_at }}
+</div>
+
+</body>
+</html>

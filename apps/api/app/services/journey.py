@@ -14,10 +14,8 @@ from app.models.finance_attachment import FinanceAttachment
 DAILY_JOURNEY_STEPS = [
     "SELECT_UNIT",
     "GENERATE_BOOKING_CONFIRMATION",
-    "GENERATE_OFFICIAL_CONFIRMATION",
     "REQUEST_INVOICE",
     "UPLOAD_INVOICE",
-    "GENERATE_HANDOVER",
     "DEAL_CLOSED",
 ]
 

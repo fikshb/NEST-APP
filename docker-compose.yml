@@ -30,6 +30,8 @@ services:
       OPENCLAW_SERVICE_TOKEN: dev-bot-token-change-in-prod
       FINANCE_EMAIL: finance@example.com
       INITIAL_ASSET_PATH: /app/initial_asset
+      ADMIN_USER: adminnest
+      ADMIN_PASSWORD: "@adm1nNest!!"
     volumes:
       - ./apps/api:/app
       - ./packages/shared:/app/packages/shared

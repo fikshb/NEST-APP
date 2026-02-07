@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { removeToken } from "@/lib/auth";
 import {
   LayoutDashboard,
   Handshake,
@@ -10,6 +11,7 @@ import {
   Building2,
   FileText,
   Settings,
+  LogOut,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -23,6 +25,12 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    removeToken();
+    router.push("/login");
+  };
 
   return (
     <aside className="w-64 min-h-screen bg-white border-r border-line-soft flex flex-col">
@@ -63,8 +71,15 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-6 py-6 border-t border-line-soft">
-        <p className="text-[11px] font-ui text-text-muted">PRD v8.1</p>
+      <div className="px-3 py-4 border-t border-line-soft">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-input text-sm font-ui text-text-secondary hover:bg-feedback-danger/5 hover:text-feedback-danger transition-colors w-full"
+        >
+          <LogOut size={18} strokeWidth={1.8} />
+          Logout
+        </button>
+        <p className="text-[11px] font-ui text-text-muted px-4 mt-2">PRD v8.1</p>
       </div>
     </aside>
   );

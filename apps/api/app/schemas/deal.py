@@ -12,15 +12,21 @@ class DealCreate(BaseModel):
     term_type: str
     start_date: date
     end_date: date | None = None
-    list_price: Decimal
-    deal_price: Decimal
     currency: str = "IDR"
 
 
 class DealUpdate(BaseModel):
-    deal_price: Decimal | None = None
     start_date: date | None = None
     end_date: date | None = None
+
+
+class DealSetPriceRequest(BaseModel):
+    deal_price: Decimal
+
+
+class DealSetMoveInRequest(BaseModel):
+    move_in_date: date
+    move_in_notes: str = ""
 
 
 class DealResponse(BaseModel):
@@ -31,8 +37,8 @@ class DealResponse(BaseModel):
     term_type: str
     start_date: date
     end_date: date | None
-    list_price: Decimal
-    deal_price: Decimal
+    initial_price: Decimal
+    deal_price: Decimal | None
     currency: str
     status: str
     current_step: str
@@ -40,6 +46,8 @@ class DealResponse(BaseModel):
     invoice_requested_at: datetime | None
     cancelled_at: datetime | None
     cancellation_reason: str | None
+    move_in_date: date | None
+    move_in_notes: str | None
     created_at: datetime
     updated_at: datetime
     tenant: TenantResponse | None = None

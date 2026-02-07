@@ -69,8 +69,10 @@
     <tr><th>Term</th><td>{{ deal.term_type | replace("_", " ") | title }}</td></tr>
     <tr><th>Start Date</th><td>{{ deal.start_date }}</td></tr>
     {% if deal.end_date %}<tr><th>End Date</th><td>{{ deal.end_date }}</td></tr>{% endif %}
-    <tr><th>List Price</th><td>{{ deal.currency }} {{ "{:,.2f}".format(deal.list_price | float) }}</td></tr>
-    <tr><th>Deal Price</th><td>{{ deal.currency }} {{ "{:,.2f}".format(deal.deal_price | float) }}</td></tr>
+    <tr><th>List Price</th><td>{{ deal.currency }} {{ "{:,.2f}".format(deal.initial_price | float) }}</td></tr>
+    {% if deal.deal_price is not none and deal.deal_price != deal.initial_price %}
+    <tr><th>Agreed Price</th><td>{{ deal.currency }} {{ "{:,.2f}".format(deal.deal_price | float) }}</td></tr>
+    {% endif %}
   </table>
 </div>
 

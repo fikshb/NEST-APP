@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import {
   fetchDeal,
@@ -13,7 +13,10 @@ import {
   dealClose,
   dealCancel,
   dealEmergencyOverride,
+  dealSetPrice,
+  dealSetMoveInDetails,
 } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { CheckCircle2, Circle, AlertCircle, Upload, ChevronLeft } from "lucide-react";
 
@@ -58,6 +61,11 @@ export default function DealDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideStep, setOverrideStep] = useState("");
+  const [negotiatedPrice, setNegotiatedPrice] = useState("");
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [moveInDate, setMoveInDate] = useState("");
+  const [moveInNotes, setMoveInNotes] = useState("");
+  const [moveInLoading, setMoveInLoading] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["deal", dealId] });
@@ -69,6 +77,11 @@ export default function DealDetailPage() {
     setActionLoading(true);
     try {
       if (type === "generate") {
+        // Auto-save negotiated price before generating document
+        if (showPriceInput && negotiatedPrice.trim()) {
+          await dealSetPrice(dealId, Number(negotiatedPrice));
+          setNegotiatedPrice("");
+        }
         await dealGenerateDocument(dealId);
       } else if (type === "invoice") {
         await dealRequestInvoice(dealId);
@@ -94,6 +107,33 @@ export default function DealDetailPage() {
       alert(err.message);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSetPrice = async () => {
+    if (!negotiatedPrice.trim()) return;
+    setPriceLoading(true);
+    try {
+      await dealSetPrice(dealId, Number(negotiatedPrice));
+      setNegotiatedPrice("");
+      invalidate();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setPriceLoading(false);
+    }
+  };
+
+  const handleSetMoveIn = async () => {
+    if (!moveInDate.trim()) return;
+    setMoveInLoading(true);
+    try {
+      await dealSetMoveInDetails(dealId, moveInDate, moveInNotes);
+      invalidate();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setMoveInLoading(false);
     }
   };
 
@@ -137,6 +177,11 @@ export default function DealDetailPage() {
   const isCompleted = deal.status === "COMPLETED";
   const currentStep = deal.current_step;
   const stepAction = STEP_ACTIONS[currentStep];
+  const isFinalizeLoo = currentStep === "FINALIZE_LOO";
+  const isBookingConfirmation = currentStep === "GENERATE_BOOKING_CONFIRMATION";
+  const showPriceInput = isFinalizeLoo || isBookingConfirmation;
+  const isMoveIn = currentStep === "GENERATE_MOVE_IN";
+  const effectivePrice = deal.deal_price ?? deal.initial_price;
 
   return (
     <div>
@@ -201,9 +246,16 @@ export default function DealDetailPage() {
                 <p className="font-ui font-medium text-teal-900">
                   {deal.unit?.unit_code} ({deal.unit?.unit_type})
                 </p>
-                <p className="text-sm text-text-secondary">
-                  {formatCurrency(Number(deal.deal_price), deal.currency)}
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm text-text-secondary">
+                    List Price: {formatCurrency(Number(deal.initial_price), deal.currency)}
+                  </p>
+                  {deal.deal_price != null && Number(deal.deal_price) !== Number(deal.initial_price) && (
+                    <p className="text-sm font-medium text-teal-900">
+                      Agreed Price: {formatCurrency(Number(deal.deal_price), deal.currency)}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -251,9 +303,96 @@ export default function DealDetailPage() {
               ))}
             </div>
 
+            {/* Negotiated Price Input (Booking Confirmation & Finalize LOO) */}
+            {!isCancelled && !isCompleted && showPriceInput && (
+              <div className="mt-6 pt-6 border-t border-line-soft">
+                <div className="p-4 rounded-input bg-teal-900/5 border border-teal-900/10 mb-4">
+                  <p className="text-xs font-ui text-text-muted mb-1">Current List Price</p>
+                  <p className="text-sm font-ui font-medium text-teal-900">
+                    {formatCurrency(Number(deal.initial_price), deal.currency)}
+                  </p>
+                  {deal.deal_price != null && (
+                    <p className="text-xs text-feedback-success mt-1">
+                      Agreed price set: {formatCurrency(Number(deal.deal_price), deal.currency)}
+                    </p>
+                  )}
+                </div>
+                <label className="text-sm font-ui text-text-secondary mb-2 block">
+                  Negotiated Price (optional — leave empty to use list price)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    className="input-field flex-1"
+                    placeholder={String(deal.initial_price)}
+                    value={negotiatedPrice}
+                    onChange={(e) => setNegotiatedPrice(e.target.value)}
+                  />
+                  <button
+                    className="btn-secondary text-sm"
+                    onClick={handleSetPrice}
+                    disabled={priceLoading || !negotiatedPrice.trim()}
+                  >
+                    {priceLoading ? "Saving..." : "Set Price"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* GENERATE_MOVE_IN: Move-in Details Input */}
+            {!isCancelled && !isCompleted && isMoveIn && (
+              <div className="mt-6 pt-6 border-t border-line-soft">
+                {deal.move_in_date && (
+                  <div className="p-4 rounded-input bg-teal-900/5 border border-teal-900/10 mb-4">
+                    <p className="text-xs font-ui text-text-muted mb-1">Move-in Details Saved</p>
+                    <p className="text-sm font-ui font-medium text-teal-900">
+                      Date: {deal.move_in_date}
+                    </p>
+                    {deal.move_in_notes && (
+                      <p className="text-xs text-text-secondary mt-1 whitespace-pre-line">
+                        Items: {deal.move_in_notes}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-ui text-text-secondary mb-1 block">
+                      Move-in Date
+                    </label>
+                    <input
+                      type="date"
+                      className="input-field"
+                      value={moveInDate}
+                      onChange={(e) => setMoveInDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-ui text-text-secondary mb-1 block">
+                      Items to Move In (one per line)
+                    </label>
+                    <textarea
+                      className="input-field"
+                      rows={4}
+                      placeholder={"e.g.\nKing-size bed frame\n2x Suitcases\nDesk and office chair\nMicrowave oven"}
+                      value={moveInNotes}
+                      onChange={(e) => setMoveInNotes(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="btn-secondary text-sm w-full"
+                    onClick={handleSetMoveIn}
+                    disabled={moveInLoading || !moveInDate.trim()}
+                  >
+                    {moveInLoading ? "Saving..." : "Save Move-in Details"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Primary Action Button */}
             {!isCancelled && !isCompleted && stepAction && (
-              <div className="mt-6 pt-6 border-t border-line-soft">
+              <div className={cn("mt-6", !showPriceInput && !isMoveIn && "pt-6 border-t border-line-soft")}>
                 {stepAction.type === "upload" ? (
                   <div>
                     <input
@@ -307,14 +446,14 @@ export default function DealDetailPage() {
                     {doc.versions?.[0] && (
                       <div className="flex gap-2 mt-2">
                         <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/documents/${doc.id}/versions/${doc.versions[0].id}/preview`}
+                          href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/documents/${doc.id}/versions/${doc.versions[0].id}/preview?token=${getToken() || ""}`}
                           target="_blank"
                           className="text-xs text-teal-800 hover:underline font-ui"
                         >
                           Preview
                         </a>
                         <a
-                          href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/documents/${doc.id}/versions/${doc.versions[0].id}/pdf`}
+                          href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/documents/${doc.id}/versions/${doc.versions[0].id}/pdf?token=${getToken() || ""}`}
                           target="_blank"
                           className="text-xs text-teal-800 hover:underline font-ui"
                         >
