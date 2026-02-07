@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchSettings, updateSettings } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 import { Upload } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -58,10 +59,12 @@ export default function SettingsPage() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      await fetch(`${API_BASE}/settings/${type}`, {
+      const res = await fetch(`${API_BASE}/settings/${type}`, {
         method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
       });
+      if (!res.ok) throw new Error(await res.text());
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       setMessage(`${type === "logo" ? "Logo" : "Signature"} uploaded.`);
     } catch {
