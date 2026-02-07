@@ -24,6 +24,20 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables created/verified successfully")
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
+
+    # Auto-initialize AppSettings if empty
+    try:
+        from app.database import SessionLocal
+        from app.models.settings import AppSettings
+        db = SessionLocal()
+        if not db.query(AppSettings).first():
+            db.add(AppSettings())
+            db.commit()
+            logger.info("AppSettings initialized with defaults")
+        db.close()
+    except Exception as e:
+        logger.error(f"Failed to initialize AppSettings: {e}")
+
     yield
 
 
