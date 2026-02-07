@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ doc_type | replace("_", " ") | title }} — {{ company_name }}</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2cm; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #212929; line-height: 1.6; font-size: 11pt; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #133437; padding-bottom: 16px; margin-bottom: 32px; }
+  .logo img { max-height: 60px; }
+  .company-info { text-align: right; font-size: 9pt; color: #565656; }
+  .doc-title { font-size: 18pt; font-weight: 600; color: #133437; margin-bottom: 24px; text-align: center; }
+  .doc-meta { font-size: 9pt; color: #565656; margin-bottom: 24px; }
+  .section { margin-bottom: 20px; }
+  .section h3 { font-size: 12pt; color: #133437; border-bottom: 1px solid #dfdbd1; padding-bottom: 6px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  table th, table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #e5e5e0; font-size: 10pt; }
+  table th { background: #f1f1ee; color: #133437; font-weight: 600; }
+  .signature-block { margin-top: 48px; }
+  .signature-block .sig-line { border-top: 1px solid #212929; width: 200px; margin-top: 48px; padding-top: 4px; }
+  .footer { margin-top: 48px; border-top: 1px solid #dfdbd1; padding-top: 12px; font-size: 8pt; color: #999; text-align: center; }
+  .version-badge { display: inline-block; background: #f1f1ee; color: #133437; padding: 2px 10px; border-radius: 10px; font-size: 8pt; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="NEST Logo">{% endif %}
+  </div>
+  <div class="company-info">
+    <strong>{{ company_name }}</strong><br>
+    {{ company_address }}
+  </div>
+</div>
+
+{% set doc_titles = {
+  "BOOKING_CONFIRMATION": "Booking Confirmation",
+  "LOO_DRAFT": "Letter of Offer – Draft",
+  "LOO_FINAL": "Letter of Offer – Final",
+  "LEASE_AGREEMENT": "Lease Agreement",
+  "OFFICIAL_CONFIRMATION": "Official Confirmation Letter",
+  "MOVE_IN_CONFIRMATION": "Move-in Confirmation",
+  "UNIT_HANDOVER": "Unit Handover Certificate"
+} %}
+
+<div class="doc-title">{{ doc_titles.get(doc_type, doc_type | replace("_", " ") | title) }}</div>
+
+<div class="doc-meta">
+  <span class="version-badge">Version {{ version }}</span> &nbsp;|&nbsp;
+  Date: {{ generated_at }} &nbsp;|&nbsp;
+  Ref: {{ deal.deal_code }}
+</div>
+
+<div class="section">
+  <h3>Tenant Information</h3>
+  <table>
+    <tr><th>Name</th><td>{{ tenant.full_name }}</td></tr>
+    <tr><th>Email</th><td>{{ tenant.email }}</td></tr>
+    <tr><th>Phone</th><td>{{ tenant.phone }}</td></tr>
+    {% if tenant.company_name %}<tr><th>Company</th><td>{{ tenant.company_name }}</td></tr>{% endif %}
+  </table>
+</div>
+
+<div class="section">
+  <h3>Unit &amp; Deal Details</h3>
+  <table>
+    <tr><th>Unit</th><td>{{ unit.unit_code }} ({{ unit.unit_type }})</td></tr>
+    <tr><th>Term</th><td>{{ deal.term_type | replace("_", " ") | title }}</td></tr>
+    <tr><th>Start Date</th><td>{{ deal.start_date }}</td></tr>
+    {% if deal.end_date %}<tr><th>End Date</th><td>{{ deal.end_date }}</td></tr>{% endif %}
+    <tr><th>List Price</th><td>{{ deal.currency }} {{ "{:,.2f}".format(deal.list_price | float) }}</td></tr>
+    <tr><th>Deal Price</th><td>{{ deal.currency }} {{ "{:,.2f}".format(deal.deal_price | float) }}</td></tr>
+  </table>
+</div>
+
+{% if doc_type == "BOOKING_CONFIRMATION" %}
+<div class="section">
+  <p>This letter confirms the booking of the above unit for the specified period. The reservation is subject to full payment as per the agreed terms.</p>
+</div>
+{% elif doc_type == "LOO_DRAFT" %}
+<div class="section">
+  <p>This is a draft Letter of Offer for your review. Please confirm the terms or request amendments. This document is not binding until finalized.</p>
+</div>
+{% elif doc_type == "LOO_FINAL" %}
+<div class="section">
+  <p>This is the final Letter of Offer. By acknowledging this document, both parties agree to the terms stated above. This offer is valid for 7 days from the date of issue.</p>
+</div>
+{% elif doc_type == "LEASE_AGREEMENT" %}
+<div class="section">
+  <p>This Lease Agreement sets forth the terms and conditions under which the above unit is leased. Both parties agree to abide by the terms stated herein for the duration of the lease period.</p>
+</div>
+{% elif doc_type == "OFFICIAL_CONFIRMATION" %}
+<div class="section">
+  <p>This letter officially confirms the arrangement for the above unit. All details have been verified and are in order.</p>
+</div>
+{% elif doc_type == "MOVE_IN_CONFIRMATION" %}
+<div class="section">
+  <p>This confirms that all prerequisites have been met and the tenant is cleared to move into the above unit on the specified start date.</p>
+</div>
+{% elif doc_type == "UNIT_HANDOVER" %}
+<div class="section">
+  <p>This certificate confirms the handover of the above unit to the tenant. The unit has been inspected and is in satisfactory condition.</p>
+</div>
+{% endif %}
+
+{% if signatory_name %}
+<div class="signature-block">
+  <p>Authorized by:</p>
+  <div class="sig-line">
+    <strong>{{ signatory_name }}</strong><br>
+    {{ signatory_title }}<br>
+    {{ company_name }}
+  </div>
+</div>
+{% endif %}
+
+<div class="footer">
+  {{ company_name }} — Confidential | Generated {{ generated_at }} | Version {{ version }}
+</div>
+
+</body>
+</html>

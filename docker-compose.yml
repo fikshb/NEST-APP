@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nestapp
+      POSTGRES_PASSWORD: nestapp_dev_password
+      POSTGRES_DB: nestapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nestapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://nestapp:nestapp_dev_password@db:5432/nestapp
+      API_SECRET_KEY: dev-secret-key
+      STORAGE_ROOT: /app/storage
+      OPENCLAW_SERVICE_TOKEN: dev-bot-token-change-in-prod
+      FINANCE_EMAIL: finance@example.com
+      INITIAL_ASSET_PATH: /app/initial_asset
+    volumes:
+      - ./apps/api:/app
+      - ./packages/shared:/app/packages/shared
+      - ./storage:/app/storage
+      - ./initial_asset:/app/initial_asset:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        cd /app &&
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
