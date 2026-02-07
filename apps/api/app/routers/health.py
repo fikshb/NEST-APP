@@ -1,4 +1,5 @@
 import json
+import urllib.error
 import urllib.request
 
 from fastapi import APIRouter
@@ -47,5 +48,8 @@ def test_email():
             result = json.loads(resp.read().decode("utf-8"))
 
         return {"status": "sent", "resend_id": result.get("id"), **info}
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        return {"status": "error", "http_code": e.code, "error": body, **info}
     except Exception as e:
         return {"status": "error", "error": str(e), **info}
