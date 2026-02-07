@@ -1,0 +1,34 @@
+.git
+.gitignore
+.claude
+.env
+.env.*
+.env.local
+.vscode
+.idea
+
+# Node
+node_modules
+.next
+out
+.turbo
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+.venv
+venv
+
+# Storage (runtime only)
+storage
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Docs (not needed in image)
+docs
+*.md
+!apps/api/requirements.txt

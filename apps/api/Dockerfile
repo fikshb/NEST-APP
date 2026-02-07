@@ -1,5 +1,9 @@
 FROM python:3.11-slim
 
+# Prevent .pyc files and enable unbuffered output
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 # WeasyPrint system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -12,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy and install requirements first (for layer caching)
+# Copy and install requirements first (layer caching)
 COPY apps/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -30,4 +34,5 @@ RUN mkdir -p /app/storage
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run migrations then start server; Railway injects PORT at runtime
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
