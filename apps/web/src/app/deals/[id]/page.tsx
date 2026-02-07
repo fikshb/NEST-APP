@@ -17,7 +17,7 @@ import {
   dealSetMoveInDetails,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber, unformatNumber, cn } from "@/lib/utils";
 import { CheckCircle2, Circle, AlertCircle, Upload, ChevronLeft } from "lucide-react";
 
 const STEP_ACTIONS: Record<string, { label: string; type: "generate" | "invoice" | "upload" | "close" }> = {
@@ -62,7 +62,6 @@ export default function DealDetailPage() {
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideStep, setOverrideStep] = useState("");
   const [negotiatedPrice, setNegotiatedPrice] = useState("");
-  const [priceLoading, setPriceLoading] = useState(false);
   const [moveInDate, setMoveInDate] = useState("");
   const [moveInNotes, setMoveInNotes] = useState("");
   const [moveInLoading, setMoveInLoading] = useState(false);
@@ -78,9 +77,11 @@ export default function DealDetailPage() {
     try {
       if (type === "generate") {
         // Auto-save negotiated price before generating document
-        if (showPriceInput && negotiatedPrice.trim()) {
-          await dealSetPrice(dealId, Number(negotiatedPrice));
-          setNegotiatedPrice("");
+        if (showPriceInput) {
+          const rawPrice = unformatNumber(negotiatedPrice);
+          if (rawPrice) {
+            await dealSetPrice(dealId, Number(rawPrice));
+          }
         }
         await dealGenerateDocument(dealId);
       } else if (type === "invoice") {
@@ -107,20 +108,6 @@ export default function DealDetailPage() {
       alert(err.message);
     } finally {
       setActionLoading(false);
-    }
-  };
-
-  const handleSetPrice = async () => {
-    if (!negotiatedPrice.trim()) return;
-    setPriceLoading(true);
-    try {
-      await dealSetPrice(dealId, Number(negotiatedPrice));
-      setNegotiatedPrice("");
-      invalidate();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setPriceLoading(false);
     }
   };
 
@@ -307,35 +294,26 @@ export default function DealDetailPage() {
             {!isCancelled && !isCompleted && showPriceInput && (
               <div className="mt-6 pt-6 border-t border-line-soft">
                 <div className="p-4 rounded-input bg-teal-900/5 border border-teal-900/10 mb-4">
-                  <p className="text-xs font-ui text-text-muted mb-1">Current List Price</p>
+                  <p className="text-xs font-ui text-text-muted mb-1">List Price</p>
                   <p className="text-sm font-ui font-medium text-teal-900">
                     {formatCurrency(Number(deal.initial_price), deal.currency)}
                   </p>
-                  {deal.deal_price != null && (
-                    <p className="text-xs text-feedback-success mt-1">
-                      Agreed price set: {formatCurrency(Number(deal.deal_price), deal.currency)}
-                    </p>
-                  )}
                 </div>
                 <label className="text-sm font-ui text-text-secondary mb-2 block">
-                  Negotiated Price (optional — leave empty to use list price)
+                  Deal Price — edit if negotiated, or leave as-is
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    className="input-field flex-1"
-                    placeholder={String(deal.initial_price)}
-                    value={negotiatedPrice}
-                    onChange={(e) => setNegotiatedPrice(e.target.value)}
-                  />
-                  <button
-                    className="btn-secondary text-sm"
-                    onClick={handleSetPrice}
-                    disabled={priceLoading || !negotiatedPrice.trim()}
-                  >
-                    {priceLoading ? "Saving..." : "Set Price"}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="input-field w-full"
+                  value={negotiatedPrice || formatNumber(deal.deal_price ?? deal.initial_price)}
+                  onChange={(e) => setNegotiatedPrice(formatNumber(e.target.value))}
+                />
+                {unformatNumber(negotiatedPrice || String(deal.deal_price ?? deal.initial_price)) && (
+                  <p className="text-xs text-text-muted mt-1">
+                    {formatCurrency(Number(unformatNumber(negotiatedPrice || String(deal.deal_price ?? deal.initial_price))), deal.currency)}
+                  </p>
+                )}
               </div>
             )}
 

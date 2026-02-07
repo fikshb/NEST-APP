@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchUnits, createUnit, updateUnit } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatNumber, unformatNumber } from "@/lib/utils";
 import { Plus, Pencil } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -109,22 +109,23 @@ function UnitForm({
     unit_code: initial?.unit_code || "",
     unit_type: initial?.unit_type || "Standard",
     notes: initial?.notes || "",
-    daily_price: initial?.daily_price?.toString() || "",
-    monthly_price: initial?.monthly_price?.toString() || "",
-    six_month_price: initial?.six_month_price?.toString() || "",
-    twelve_month_price: initial?.twelve_month_price?.toString() || "",
+    daily_price: initial?.daily_price ? formatNumber(initial.daily_price) : "",
+    monthly_price: initial?.monthly_price ? formatNumber(initial.monthly_price) : "",
+    six_month_price: initial?.six_month_price ? formatNumber(initial.six_month_price) : "",
+    twelve_month_price: initial?.twelve_month_price ? formatNumber(initial.twelve_month_price) : "",
   });
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
     if (!form.unit_code) return;
     setSaving(true);
+    const raw = (v: string) => { const n = unformatNumber(v); return n ? Number(n) : null; };
     await onSave({
       ...form,
-      daily_price: form.daily_price ? Number(form.daily_price) : null,
-      monthly_price: form.monthly_price ? Number(form.monthly_price) : null,
-      six_month_price: form.six_month_price ? Number(form.six_month_price) : null,
-      twelve_month_price: form.twelve_month_price ? Number(form.twelve_month_price) : null,
+      daily_price: raw(form.daily_price),
+      monthly_price: raw(form.monthly_price),
+      six_month_price: raw(form.six_month_price),
+      twelve_month_price: raw(form.twelve_month_price),
     });
     setSaving(false);
   };
@@ -149,19 +150,19 @@ function UnitForm({
         </div>
         <div>
           <label className="text-sm font-ui text-text-secondary mb-1 block">Daily Price</label>
-          <input type="number" className="input-field" value={form.daily_price} onChange={(e) => setForm({ ...form, daily_price: e.target.value })} />
+          <input type="text" inputMode="numeric" className="input-field" value={form.daily_price} onChange={(e) => setForm({ ...form, daily_price: formatNumber(e.target.value) })} />
         </div>
         <div>
           <label className="text-sm font-ui text-text-secondary mb-1 block">Monthly Price</label>
-          <input type="number" className="input-field" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: e.target.value })} />
+          <input type="text" inputMode="numeric" className="input-field" value={form.monthly_price} onChange={(e) => setForm({ ...form, monthly_price: formatNumber(e.target.value) })} />
         </div>
         <div>
           <label className="text-sm font-ui text-text-secondary mb-1 block">6-Month Price</label>
-          <input type="number" className="input-field" value={form.six_month_price} onChange={(e) => setForm({ ...form, six_month_price: e.target.value })} />
+          <input type="text" inputMode="numeric" className="input-field" value={form.six_month_price} onChange={(e) => setForm({ ...form, six_month_price: formatNumber(e.target.value) })} />
         </div>
         <div>
           <label className="text-sm font-ui text-text-secondary mb-1 block">12-Month Price</label>
-          <input type="number" className="input-field" value={form.twelve_month_price} onChange={(e) => setForm({ ...form, twelve_month_price: e.target.value })} />
+          <input type="text" inputMode="numeric" className="input-field" value={form.twelve_month_price} onChange={(e) => setForm({ ...form, twelve_month_price: formatNumber(e.target.value) })} />
         </div>
         <div className="sm:col-span-2">
           <label className="text-sm font-ui text-text-secondary mb-1 block">Notes</label>
